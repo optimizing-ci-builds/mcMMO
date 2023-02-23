@@ -3,35 +3,41 @@
 # if you wish to create the actual jar.
 name: Compile and test
 
-on:
+on: [push]
   # We run our tests whenever the pom or a source file was touched.
   # There is no need to run Maven when only the changelog was touched.
   # We may also want to re-run this workflow when the workflow file itself
   # was updated too.
-  push:
-    paths:
-    - 'src/**'
-    - 'pom.xml'
-    - '.github/workflows/maven.yml'
 
   # Whenever someone submits a new pull request which modified the pom or a source file,
   # we want to ensure it compiles successfully and that all tests will pass.
-  pull_request:
-    paths:
-    - 'src/**'
-    - 'pom.xml'
 
 jobs:
   compile:
     name: Maven compiler
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas
+        pip install numpy
+    - run: sudo apt update
+    - run: sudo apt install inotify-tools
+    - run: inotifywait -mr /home/runner/work/mcMMO/mcMMO/ --format '%T;%w;%f;%e' --timefmt %T -o /home/runner/inotify-logs.csv & echo 'optimizing-ci-builds'
 
     # 1. Check out the current working tree
+    - run: touch starting_compile_Checkoutrepository_31
+    - run: rm starting_compile_Checkoutrepository_31
     - name: Checkout repository
       uses: actions/checkout@v2
 
     # 2. Setup Java 17 JDK (Adopt)
+    - run: touch starting_compile_Java17setup_35
+    - run: rm starting_compile_Java17setup_35
     - name: Java 17 setup
       uses: actions/setup-java@v2
       with:
@@ -40,6 +46,8 @@ jobs:
         java-version: '17'
 
     # 3. Setup local Maven package cache to speed up building
+    - run: touch starting_compile_CacheMavenpackages_43
+    - run: rm starting_compile_CacheMavenpackages_43
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
@@ -48,5 +56,48 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
 
     # 4. Build via Maven 
+    - run: touch starting_compile_BuildviaMaven_51
+    - run: rm starting_compile_BuildviaMaven_51
     - name: Build via Maven
       run: mvn verify -B --file pom.xml
+    - run: touch starting_finished_finished_8979874
+      if: always()
+    - run: rm starting_finished_finished_8979874
+      if: always()
+    - name: Check script file exists and execute
+      id: check_files
+      uses: andstor/file-existence-action@v1
+      with:
+        files: .github/workflows/script.py
+    - name: File exists
+      if: steps.check_files.outputs.files_exists == 'true'
+      run: |
+        echo 'not exists python file'
+        run: |
+          python .github/workflows/script.py
+    - name: Checkout to destination CI-analyzes repo
+      uses: actions/checkout@v3
+      if: always()
+      with:
+        path: mcMMO
+        ref: '1677128267-259e146'
+        repository: 'UT-SE-Research/ci-analyzes'
+        token: '${{ secrets.API_TOKEN_GITHUB }}'
+        persist-credentials: true
+    - name: Copy files to push to another directory
+      if: steps.check_files.outputs.files_exists == 'true'
+      run: |
+        mkdir -p mcMMO/mcMMO/.github/workflows/maven/compile
+        cp -rvT optimizing-ci-builds-ci-analysis mcMMO/mcMMO/.github/workflows/maven/compile
+    - name: Pushes analysis to another repository
+      if: steps.check_files.outputs.files_exists == 'true'
+      working-directory: mcMMO
+      run: |
+        git config --global user.name 'UT-SE-Research'
+        git config --global user.email '${{ secrets.EMAIL }}'
+        git add .
+        git commit -m 'rebased and pushed'
+        while ! git push -f origin 1677128267-259e146; do
+          git pull --rebase origin 1677128267-259e146
+          sleep $((RANDOM % 5 + 1))
+        done
