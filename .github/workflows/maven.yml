@@ -33,6 +33,7 @@ jobs:
     - run: rm starting_compile_Checkoutrepository_31
     - name: Checkout repository
       uses: actions/checkout@v2
+    - run: python .github/workflows/inotify_script.py /home/runner/work/mcMMO/mcMMO /home/runner/inotify-logs.csv & echo 'optimizing-ci-builds'
 
     # 2. Setup Java 17 JDK (Adopt)
     - run: touch starting_compile_Java17setup_35
